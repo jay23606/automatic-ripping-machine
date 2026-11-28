@@ -346,7 +346,7 @@ if [[ "${ACTION}" == "up" ]]; then
     #    services this stack no longer defines (they would hold their ports).
     #    Note the backend's start time first, to tell whether step 6 restarts it.
     BACKEND_STARTED_BEFORE="$(backend_started_at)"
-    remove_spawned_containers
+    remove_spawned_containers --preserve-iso
     remove_retired_services
 
     # 6. Start from the images built above (no --build). An explicit service

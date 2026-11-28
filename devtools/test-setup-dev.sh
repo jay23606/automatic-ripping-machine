@@ -117,7 +117,7 @@ respawn() {  # respawn <ripper ids> <transcoder ids> <StartedAt before> <Started
     (
         # shellcheck source=/dev/null
         source "${LIB}/common.sh"
-        stub_rippers="$1" stub_tasks="$2" before="$3" stub_after="$4" stub_virtual="${5:-}"
+        stub_rippers="$1" stub_tasks="$2" before="$3" stub_after="$4" stub_virtual="${5:-}" stub_mode="${6:-}"
         BACKEND_SERVICE=arm-backend
         compose() {
             case "$1" in
@@ -138,7 +138,7 @@ respawn() {  # respawn <ripper ids> <transcoder ids> <StartedAt before> <Started
             return 0
         }
         eval "${spawn_defs}"
-        remove_spawned_containers >/dev/null
+        remove_spawned_containers "${stub_mode}" >/dev/null
         out="$(respawn_rippers_if_needed "${before}" 2>&1 >/dev/null)"
         echo "removed=${RIPPERS_REMOVED} ${out:-no-restart}"
     )
@@ -151,19 +151,20 @@ check "only a transcoder removed: no restart" \
     "removed=0 no-restart" "$(respawn '' t1 T1 T1)"
 check "nothing removed: no restart" \
     "removed=0 no-restart" "$(respawn '' '' T1 T1)"
-# removed_ids <ripper ids> <virtual ids>: the container ids remove_spawned_containers
-# hands to `docker rm`, space-separated.
+# removed_ids <ripper ids> <virtual ids> <mode>: the container ids
+# remove_spawned_containers hands to `docker rm`, space-separated.
 removed_ids() {
     local log
     log="$(mktemp)"
-    rm_log="${log}" respawn "$1" '' T1 T1 "$2" >/dev/null
+    rm_log="${log}" respawn "$1" '' T1 T1 "$2" "${3:-}" >/dev/null
     tr '\n' ' ' < "${log}" | sed 's/ *$//'
     rm -f "${log}"
 }
-check "optical rippers are removed" "r1 r2" "$(removed_ids $'r1\nr2' '')"
-check "an ISO ripper (arm.virtual) is kept, the optical one removed" "r1" "$(removed_ids $'r1\nv1' 'v1')"
+check "deploy-up removes optical rippers" "r1 r2" "$(removed_ids $'r1\nr2' '' --preserve-iso)"
+check "deploy-up keeps ISO rippers and removes optical rippers" "r1" "$(removed_ids $'r1\nv1' 'v1' --preserve-iso)"
+check "down removes ISO and optical rippers" "r1 v1" "$(removed_ids $'r1\nv1' 'v1')"
 check "only an ISO ripper: nothing removed, no restart" \
-    "removed=0 no-restart" "$(respawn 'v1' '' T1 T1 'v1')"
+    "removed=0 no-restart" "$(respawn 'v1' '' T1 T1 'v1' --preserve-iso)"
 check "backend was not running before up: no restart" \
     "removed=1 no-restart" "$(respawn r1 '' '' T2)"
 present "up restarts a kept backend after removing rippers" '^    respawn_rippers_if_needed "\$\{BACKEND_STARTED_BEFORE\}"$' "${SETUP}"

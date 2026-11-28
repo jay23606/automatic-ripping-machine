@@ -11,11 +11,8 @@
 # compose network, and the optical device nodes across a redeploy.
 RIPPERS_REMOVED=0
 
-# Optical rippers only, one id per line. A one-shot ISO ripper (label
-# `arm.virtual`, ripper_container_spec.py) is left alone: it may be parked at
-# its review gate holding a job, and the backend's virtual-drive sweep owns
-# its lifecycle (it retires the drive once the run ends). Removing it here
-# would make the sweep fail that job on the next backend start.
+# Optical rippers only, one id per line. Deploy-up uses this to preserve a
+# one-shot ISO ripper (label `arm.virtual`) across an image/config refresh.
 optical_rippers() {
     local rippers virtual
     rippers="$(docker ps -aq --filter "label=arm.drive_id")"
@@ -26,7 +23,11 @@ optical_rippers() {
 
 remove_spawned_containers() {
     local ids rippers
-    rippers="$(optical_rippers)"
+    if [[ "${1:-}" == "--preserve-iso" ]]; then
+        rippers="$(optical_rippers)"
+    else
+        rippers="$(docker ps -aq --filter "label=arm.drive_id")"
+    fi
     ids="$( { printf '%s\n' "${rippers}"; docker ps -aq --filter "label=arm.task_id"; } | sed '/^$/d' | sort -u )"
     # Rippers are respawned only by the backend's startup reconcile; `up`
     # checks this flag to make sure that reconcile runs again (see below).

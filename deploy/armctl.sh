@@ -209,7 +209,7 @@ verify_images_present() {
 go_live() {
     local started_before
     started_before="$(backend_started_at)"
-    remove_spawned_containers
+    remove_spawned_containers --preserve-iso
     remove_retired_services
     arm_say "starting the stack"
     if [[ ${#UP_SERVICES[@]} -gt 0 ]]; then
